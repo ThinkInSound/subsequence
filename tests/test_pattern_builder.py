@@ -3304,3 +3304,187 @@ def test_melody_chord_tones_passed_through () -> None:
 	total = sum(len(s.notes) for s in pattern.steps.values())
 
 	assert total == 8
+
+
+# ─────────────────────────────────────────────────────────────
+# thin()
+# ─────────────────────────────────────────────────────────────
+
+def _count_notes_at_pitch (pattern: subsequence.pattern.Pattern, midi_pitch: int) -> int:
+	"""Count notes with a given MIDI pitch across all steps."""
+	return sum(
+		1
+		for step in pattern.steps.values()
+		for note in step.notes
+		if note.pitch == midi_pitch
+	)
+
+
+def test_thin_amount_zero () -> None:
+
+	"""amount=0.0 must remove nothing."""
+
+	drum_map = {"hat": 42, "kick": 36}
+	pattern, builder = _make_builder(length=4, drum_note_map=drum_map)
+	builder.rng = random.Random(0)
+
+	builder.hit_steps("hat", range(16), velocity=80)
+	before = _count_notes_at_pitch(pattern, 42)
+
+	builder.thin("hat", "strength", amount=0.0)
+	after = _count_notes_at_pitch(pattern, 42)
+
+	assert after == before
+
+
+def test_thin_amount_one () -> None:
+
+	"""amount=1.0 with uniform strategy removes all notes for the instrument."""
+
+	drum_map = {"hat": 42}
+	pattern, builder = _make_builder(length=4, drum_note_map=drum_map)
+	builder.rng = random.Random(0)
+
+	builder.hit_steps("hat", range(16), velocity=80)
+	builder.thin("hat", "uniform", amount=1.0)
+
+	assert _count_notes_at_pitch(pattern, 42) == 0
+
+
+def test_thin_per_instrument () -> None:
+
+	"""thin() should only affect the named instrument, not other pitches."""
+
+	drum_map = {"hat": 42, "kick": 36}
+	pattern, builder = _make_builder(length=4, drum_note_map=drum_map)
+	builder.rng = random.Random(0)
+
+	builder.hit_steps("hat",  range(16), velocity=80)
+	builder.hit_steps("kick", [0, 4, 8, 12], velocity=100)
+
+	kick_before = _count_notes_at_pitch(pattern, 36)
+
+	# Thin hats completely
+	builder.thin("hat", "uniform", amount=1.0)
+
+	assert _count_notes_at_pitch(pattern, 42) == 0
+	assert _count_notes_at_pitch(pattern, 36) == kick_before
+
+
+def test_thin_sixteenths_preserves_beats () -> None:
+
+	"""sixteenths strategy should remove e/a positions and preserve downbeats."""
+
+	# Strategy mirrors ghost_fill bias "sixteenths" but inverted:
+	# ghost_fill "sixteenths" adds to e/a; thin "sixteenths" removes from e/a.
+	drum_map = {"hat": 42}
+	pattern, builder = _make_builder(length=4, drum_note_map=drum_map)
+	builder.rng = random.Random(42)
+
+	# Fill all 16 steps
+	builder.hit_steps("hat", range(16), velocity=80)
+
+	# After thinning with amount=1.0, downbeats (steps 0,4,8,12) should
+	# be protected (priority ~0.05) while e/a steps (priority 1.0) are gone.
+	builder.thin("hat", "sixteenths", amount=1.0, rng=random.Random(42))
+
+	step_dur = 4.0 / 16
+	downbeat_notes = 0
+	for step_idx in [0, 4, 8, 12]:
+		pulse = int(step_idx * step_dur * subsequence.constants.MIDI_QUARTER_NOTE)
+		if pulse in pattern.steps:
+			downbeat_notes += sum(1 for n in pattern.steps[pulse].notes if n.pitch == 42)
+
+	assert downbeat_notes > 0
+
+
+def test_thin_strength_drops_weakest_first () -> None:
+
+	"""strength strategy should drop e/a before & before downbeats."""
+
+	drum_map = {"hat": 42}
+	pattern, builder = _make_builder(length=4, drum_note_map=drum_map)
+	builder.rng = random.Random(99)
+
+	builder.hit_steps("hat", range(16), velocity=80)
+
+	# amount=0.4: enough to drop most e/a (priority 1.0 * 0.4 = 0.4)
+	# but not downbeats (priority 0.05 * 0.4 = 0.02 → almost never dropped)
+	builder.thin("hat", "strength", amount=0.4, rng=random.Random(99))
+
+	step_dur = 4.0 / 16
+	downbeat_notes = 0
+	ea_notes = 0
+
+	for step_idx in range(16):
+		pulse = int(step_idx * step_dur * subsequence.constants.MIDI_QUARTER_NOTE)
+		count = 0
+		if pulse in pattern.steps:
+			count = sum(1 for n in pattern.steps[pulse].notes if n.pitch == 42)
+		pos = step_idx % 4
+		if pos == 0:
+			downbeat_notes += count
+		elif pos != 2:  # e and a positions
+			ea_notes += count
+
+	assert downbeat_notes >= ea_notes
+
+
+def test_thin_custom_list () -> None:
+
+	"""A custom float list should be used as drop priorities."""
+
+	drum_map = {"hat": 42}
+	pattern, builder = _make_builder(length=4, drum_note_map=drum_map)
+	builder.rng = random.Random(0)
+
+	builder.hit_steps("hat", range(16), velocity=80)
+
+	# Drop all steps except step 0 (priority 0.0 = never dropped)
+	priorities = [0.0] + [1.0] * 15
+	builder.thin("hat", priorities, amount=1.0)
+
+	step_dur = 4.0 / 16
+	pulse_0 = int(0 * step_dur * subsequence.constants.MIDI_QUARTER_NOTE)
+	assert _count_notes_at_pitch(pattern, 42) == 1
+	assert pulse_0 in pattern.steps
+
+
+def test_thin_invalid_strategy () -> None:
+
+	"""Unknown strategy string should raise ValueError."""
+
+	drum_map = {"hat": 42}
+	pattern, builder = _make_builder(length=4, drum_note_map=drum_map)
+	builder.hit_steps("hat", range(16), velocity=80)
+
+	with pytest.raises(ValueError):
+		builder.thin("hat", "no_such_strategy", amount=0.5)
+
+
+def test_thin_invalid_list_length () -> None:
+
+	"""Custom list with wrong length should raise ValueError."""
+
+	drum_map = {"hat": 42}
+	pattern, builder = _make_builder(length=4, drum_note_map=drum_map)
+	builder.hit_steps("hat", range(16), velocity=80)
+
+	with pytest.raises(ValueError):
+		builder.thin("hat", [0.5] * 8, amount=0.5)  # grid=16, list len=8
+
+
+def test_thin_deterministic () -> None:
+
+	"""Same seed should always produce the same thinned pattern."""
+
+	drum_map = {"hat": 42}
+
+	def _run (seed: int) -> list:
+		pattern, builder = _make_builder(length=4, drum_note_map=drum_map)
+		builder.hit_steps("hat", range(16), velocity=80)
+		builder.thin("hat", "strength", amount=0.5, rng=random.Random(seed))
+		return sorted(pattern.steps.keys())
+
+	assert _run(7) == _run(7)
+	assert _run(7) != _run(8)  # different seeds → different results (overwhelmingly likely)

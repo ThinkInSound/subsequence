@@ -1301,7 +1301,146 @@ class PatternBuilder:
 		for position in positions_to_remove:
 			del self._pattern.steps[position]
 
+	def thin (
+		self,
+		pitch: typing.Union[int, str],
+		strategy: typing.Union[str, typing.List[float]] = "strength",
+		amount: float = 0.5,
+		grid: typing.Optional[int] = None,
+		rng: typing.Optional[random.Random] = None,
+	) -> None:
+
+		"""
+		Remove notes from a specific instrument based on their rhythmic position.
+
+		This is the musical inverse of :meth:`ghost_fill()`.  Where ``ghost_fill``
+		uses bias weights to decide where to *add* ghost notes, ``thin`` uses the
+		same position vocabulary to decide where to *remove* notes.  A high
+		strategy weight on a position means that position is dropped first.
+
+		The strategy names match those in :meth:`build_ghost_bias()` and carry the
+		same rhythmic meaning:
+
+		- ``"sixteenths"`` — removes 16th-note subdivisions (e/a), keeps beats and &.
+		- ``"offbeat"``    — removes the & position, straightens the groove.
+		- ``"e_and_a"``    — removes all non-downbeat positions, keeps only beats.
+		- ``"downbeat"``   — removes beat positions (floating/displaced effect).
+		- ``"upbeat"``     — removes only the & position.
+		- ``"uniform"``    — removes from all positions equally (per-instrument dropout).
+		- ``"strength"``   — progressive thinning: weakest positions (e/a) drop first,
+		  strongest (downbeat) last. Useful for Perlin-driven density control.
+
+		Unlike :meth:`dropout()`, which is position-blind and pattern-wide, ``thin``
+		targets one instrument and respects each note's rhythmic function.
+
+		Position classification is **zone-based**: each grid step owns the pulse range
+		``[N * step_pulses, (N + 1) * step_pulses)``, so notes shifted by swing or
+		groove are still classified correctly regardless of call order.
+
+		Parameters:
+			pitch: Drum name or MIDI note number (same format as :meth:`ghost_fill`).
+			strategy: Named strategy string or a list of per-step drop-priority
+				floats (0.0 = never drop, 1.0 = highest drop priority). Must have
+				length equal to ``grid`` when a list is provided.
+			amount: Overall thinning depth (0.0 = remove nothing, 1.0 = remove all
+				qualifying). Effective drop probability = ``priority * amount``.
+				Drive this with a Perlin field or section progress for smooth,
+				organic thinning over time.
+			grid: Step grid size. Defaults to the pattern's ``default_grid``.
+			rng: Random number generator. Defaults to ``self.rng``.
+
+		Example::
+
+			# Thin 16th ghost notes from the kick, keep anchors and off-beats
+			p.hit_steps("kick_1", [0, 4, 8, 12], velocity=100)
+			p.ghost_fill("kick_1", density=0.3, velocity=(25, 40), bias="sixteenths")
+			p.thin("kick_1", "sixteenths", amount=0.8)
+
+			# Perlin-driven progressive thinning of hi-hats
+			sparseness = perlin_1d(p.cycle * 0.07, seed=42)
+			p.thin("hi_hat_closed", "strength", amount=sparseness)
+		"""
+
+		if rng is None:
+			rng = self.rng
+
+		if grid is None:
+			grid = self._default_grid
+
+		midi_pitch = self._resolve_pitch(pitch)
+
+		# Build the per-step drop-priority weights.
+		#
+		# Strategy names are shared with ghost_fill's bias vocabulary.  The per-step
+		# weights from build_ghost_bias() are reused directly, with semantics inverted:
+		#   ghost_fill:  high weight → place a note here
+		#   thin:        high weight → drop a note from here
+		#
+		# "strength" is defined only for thin() — it expresses a thinning hierarchy
+		# (weakest positions drop first) which has no meaningful ghost_fill equivalent.
+		if strategy == "strength":
+			# Per-beat drop priorities: e/a (1.0) > & (0.6) > downbeat (0.05).
+			# As `amount` rises, progressively weaker positions are removed first.
+			steps_per_beat = max(1, grid // 4)
+			priorities: typing.List[float] = []
+			for i in range(grid):
+				pos = i % steps_per_beat
+				if pos == 0:
+					priorities.append(0.05)
+				elif steps_per_beat > 1 and pos == steps_per_beat // 2:
+					priorities.append(0.6)
+				else:
+					priorities.append(1.0)
+		elif isinstance(strategy, list):
+			if len(strategy) != grid:
+				raise ValueError(
+					f"thin() custom strategy list has {len(strategy)} values "
+					f"but grid has {grid} steps."
+				)
+			priorities = list(strategy)
+		else:
+			# Reuse build_ghost_bias() weights for all shared strategy names.
+			# The positions that ghost_fill prefers to add to are the same
+			# positions that thin() will prefer to remove from.
+			priorities = self.build_ghost_bias(grid, strategy)
+
+		# Zone-based pulse classification.
+		# Zone N owns pulses in [ N * step_pulses, (N+1) * step_pulses ).
+		# Notes shifted by swing or groove remain in their original zone.
+		total_pulses = self._pattern.length * subsequence.constants.MIDI_QUARTER_NOTE
+		step_pulses = total_pulses / grid
+
+		pulses_to_remove: typing.List[int] = []
+
+		for pulse, step in list(self._pattern.steps.items()):
+
+			zone = int(pulse / step_pulses)
+			if zone >= grid:
+				zone = grid - 1
+
+			priority = priorities[zone]
+			if priority <= 0.0:
+				continue
+
+			# Separate target pitch from other notes at this pulse.
+			remaining = [n for n in step.notes if n.pitch != midi_pitch]
+			targets   = [n for n in step.notes if n.pitch == midi_pitch]
+
+			for note in targets:
+				if rng.random() >= priority * amount:
+					remaining.append(note)
+				# else: note is dropped
+
+			if not remaining:
+				pulses_to_remove.append(pulse)
+			else:
+				step.notes = remaining
+
+		for pulse in pulses_to_remove:
+			del self._pattern.steps[pulse]
+
 	def velocity_shape (self, low: int = subsequence.constants.velocity.VELOCITY_SHAPE_LOW, high: int = subsequence.constants.velocity.VELOCITY_SHAPE_HIGH) -> None:
+
 
 		"""
 		Apply organic velocity variation to all notes in the pattern.
