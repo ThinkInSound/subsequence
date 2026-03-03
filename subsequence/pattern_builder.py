@@ -1353,6 +1353,107 @@ class PatternBuilder:
 
 			beat += step
 
+	def lsystem (
+		self,
+		pitch_map: typing.Dict[str, typing.Union[int, str]],
+		axiom: str,
+		rules: typing.Dict[str, typing.Union[str, typing.List[typing.Tuple[str, float]]]],
+		generations: int = 3,
+		step: typing.Optional[float] = None,
+		velocity: typing.Union[int, typing.Tuple[int, int]] = 80,
+		duration: float = 0.2,
+	) -> None:
+
+		"""Generate a note sequence using L-system string rewriting.
+
+		Expands ``axiom`` by applying ``rules`` for ``generations``
+		iterations, then walks the resulting string placing a note for
+		each character found in ``pitch_map``.  Unmapped characters are
+		silent rests — they advance time but produce no note.
+
+		The defining musical property is self-similarity: patterns repeat
+		at different time scales.  The Fibonacci rule (``A → AB``,
+		``B → A``) places hits at golden-ratio spacings.  Koch and dragon
+		curve rules produce fractal melodic contours.
+
+		With ``step=None`` (default) the entire expanded string is fitted
+		into the bar: each generation makes notes twice as dense while
+		preserving the overall shape.  With a fixed ``step`` the string is
+		truncated to fit and the density stays constant.
+
+		Parameters:
+			pitch_map: Maps single characters to MIDI notes or drum names.
+				Characters absent from the map produce rests.
+			axiom: Starting string (e.g. ``"A"``).
+			rules: Production rules.  Deterministic: ``{"A": "AB"}``.
+				Stochastic: ``{"A": [("AB", 3), ("BA", 1)]}``.
+			generations: Rewriting iterations.  String length grows
+				exponentially — keep this to 3–8 for practical use.
+			step: Time between symbols in beats.  ``None`` (default)
+				auto-fits the full expanded string into the bar.  A float
+				uses fixed spacing and truncates excess symbols.
+			velocity: MIDI velocity.  An ``(low, high)`` tuple randomises
+				per note.
+			duration: Note duration in beats.
+
+		Example:
+			```python
+			# Fibonacci kick rhythm — self-similar hit spacing
+			p.lsystem(
+			    pitch_map={"A": "kick_1"},
+			    axiom="A",
+			    rules={"A": "AB", "B": "A"},
+			    generations=6,
+			    velocity=80,
+			)
+
+			# Fractal melody over scale notes
+			p.lsystem(
+			    pitch_map={"F": 60, "G": 62, "+": 64, "-": 67},
+			    axiom="F",
+			    rules={"F": "F+G", "G": "-F"},
+			    generations=4,
+			    step=0.25,
+			    velocity=(70, 100),
+			)
+			```
+		"""
+
+		expanded = subsequence.sequence_utils.lsystem_expand(
+			axiom=axiom,
+			rules=rules,
+			generations=generations,
+			rng=self.rng,
+		)
+
+		if not expanded:
+			return
+
+		if step is None:
+			auto_step = self._pattern.length / len(expanded)
+			symbols = expanded
+		else:
+			auto_step = step
+			n_steps = int(self._pattern.length / step)
+			symbols = expanded[:n_steps]
+
+		beat = 0.0
+
+		for symbol in symbols:
+			if symbol in pitch_map:
+				vel = (
+					self.rng.randint(velocity[0], velocity[1])
+					if isinstance(velocity, tuple)
+					else int(velocity)
+				)
+				self.note(
+					pitch=pitch_map[symbol],
+					beat=beat,
+					velocity=vel,
+					duration=duration,
+				)
+			beat += auto_step
+
 	# These methods transform existing notes after they have been placed.
 	# Call them at the end of your builder function, after all notes are
 	# in position. They operate on self._pattern.steps (the pulse-position

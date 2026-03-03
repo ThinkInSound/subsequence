@@ -623,6 +623,168 @@ def logistic_map (r: float, steps: int, x0: float = 0.5) -> typing.List[float]:
 	return result
 
 
+def pink_noise (steps: int, sources: int = 16, seed: int = 0) -> typing.List[float]:
+
+	"""Generate a 1/f (pink) noise sequence using the Voss-McCartney algorithm.
+
+	Pink noise has equal energy per octave — it contains both slow drift
+	and fast jitter in a single signal, matching how musical parameters
+	naturally vary.  Voss and Clarke (1978) showed that pitch and loudness
+	fluctuations in real music follow 1/f statistics.
+
+	Sits between :func:`perlin_1d` (smooth, predictable) and
+	:func:`logistic_map` (chaos, controllable order-to-randomness): use
+	pink noise when you want statistically "natural" variation without
+	tuning octave weights manually.
+
+	Parameters:
+		steps: Number of output samples.
+		sources: Number of independent random sources.  More sources extend
+			the low-frequency range.  Default 16 is a good general value.
+		seed: RNG seed.  Same seed always produces the same sequence.
+
+	Returns:
+		List of floats in [0.0, 1.0].
+
+	Example:
+		```python
+		# Humanise hi-hat velocity with pink noise
+		noise = subsequence.sequence_utils.pink_noise(steps=p.grid, seed=p.bar)
+		for i, level in enumerate(noise):
+		    if level > 0.3:
+		        p.hit_steps("hi_hat_closed", [i], velocity=round(40 + 50 * level), no_overlap=True)
+		```
+	"""
+
+	if steps <= 0:
+		return []
+
+	rng = random.Random(seed)
+
+	source_values = [rng.random() for _ in range(sources)]
+	total = sum(source_values)
+
+	result: typing.List[float] = []
+
+	for i in range(steps):
+		# Count trailing zeros of i+1 to select which source to update.
+		# This distributes updates so lower-indexed sources change less
+		# frequently, creating the 1/f spectral slope.
+		counter = i + 1
+		trailing = 0
+		while counter & 1 == 0 and trailing < sources - 1:
+			trailing += 1
+			counter >>= 1
+
+		old_val = source_values[trailing]
+		new_val = rng.random()
+		source_values[trailing] = new_val
+		total = total - old_val + new_val
+
+		result.append(total / sources)
+
+	# Normalise to [0.0, 1.0].
+	lo = min(result)
+	hi = max(result)
+	if hi > lo:
+		result = [(v - lo) / (hi - lo) for v in result]
+
+	return result
+
+
+def lsystem_expand (
+	axiom: str,
+	rules: typing.Dict[str, typing.Union[str, typing.List[typing.Tuple[str, float]]]],
+	generations: int,
+	rng: typing.Optional[random.Random] = None,
+) -> str:
+
+	"""Expand an L-system string by applying production rules.
+
+	An L-system rewrites every symbol in the current string simultaneously,
+	each generation replacing symbols according to ``rules``.  After enough
+	generations the string exhibits self-similarity: its large-scale structure
+	mirrors its small-scale structure — the same property found in natural
+	music, where motifs recur at phrase, section, and movement level.
+
+	Symbols not present in ``rules`` pass through unchanged (identity rule).
+	Symbols are single characters; each character in the string is one symbol.
+
+	Rules may be deterministic (a single replacement string) or stochastic
+	(a list of ``(replacement, weight)`` pairs).  Stochastic rules require
+	``rng`` to be provided.
+
+	.. note::
+		String length can grow exponentially.  A doubling rule applied for
+		30 generations produces ~1 billion characters.  Keep ``generations``
+		to 3–8 for practical use.
+
+	Parameters:
+		axiom: Initial string (e.g. ``"A"``).
+		rules: Production rules.  Deterministic: ``{"A": "AB", "B": "A"}``.
+			Stochastic: ``{"A": [("AB", 3), ("BA", 1)]}`` — weights are
+			relative and do not need to sum to 1.
+		generations: Number of rewriting iterations.
+		rng: Random number generator.  Required when any rule is stochastic;
+			ignored for fully deterministic rule sets.
+
+	Returns:
+		Expanded string after ``generations`` iterations.
+
+	Raises:
+		ValueError: If stochastic rules are present but ``rng`` is ``None``.
+
+	Example:
+		```python
+		# Fibonacci rhythm — hits distributed at golden-ratio spacing
+		expanded = subsequence.sequence_utils.lsystem_expand(
+		    axiom="A", rules={"A": "AB", "B": "A"}, generations=6
+		)
+		# expanded is "ABAABABAABAABABAABABA..." (length 13)
+
+		# Stochastic — different output each bar
+		expanded = subsequence.sequence_utils.lsystem_expand(
+		    axiom="A",
+		    rules={"A": [("AB", 3), ("BA", 1)]},
+		    generations=4,
+		    rng=rng,
+		)
+		```
+	"""
+
+	# Validate: stochastic rules need an rng.
+	for production in rules.values():
+		if isinstance(production, list):
+			if rng is None:
+				raise ValueError(
+					"lsystem_expand: rng is required when rules contain stochastic productions"
+				)
+			break
+
+	current = axiom
+
+	for _ in range(generations):
+		parts: typing.List[str] = []
+
+		for symbol in current:
+			if symbol not in rules:
+				parts.append(symbol)
+				continue
+
+			production = rules[symbol]
+
+			if isinstance(production, str):
+				parts.append(production)
+			else:
+				# Stochastic: pick one replacement weighted by the float weights.
+				chosen = weighted_choice(production, rng)  # type: ignore[arg-type]
+				parts.append(chosen)
+
+		current = "".join(parts)
+
+	return current
+
+
 def generate_cellular_automaton_1d (steps: int, rule: int = 30, generation: int = 0, seed: int = 1) -> typing.List[int]:
 
 	"""Generate a binary sequence using an elementary cellular automaton.

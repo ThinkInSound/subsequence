@@ -36,8 +36,9 @@ Composition tools:
   the musical inverse of ``ghost_fill``), evolving cellular-automaton
   rhythms (``cellular_1d()``, ``cellular_2d()``), smooth Perlin noise (``perlin_1d()``,
   ``perlin_2d()``, ``perlin_1d_sequence()``, ``perlin_2d_grid()``),
-  deterministic chaos sequences (``logistic_map()``), Markov-chain
-  generation (``p.markov()``), groove templates (``Groove.swing()``,
+  deterministic chaos sequences (``logistic_map()``), pink 1/f noise
+  (``pink_noise()``), L-system string rewriting (``p.lsystem()``),
+  Markov-chain generation (``p.markov()``), groove templates (``Groove.swing()``,
   ``Groove.from_agr()``), swing via ``p.swing()`` (a shortcut for
   ``Groove.swing()``), randomize, velocity shaping, dropout,
   per-step probability, and polyrhythms via independent pattern lengths.

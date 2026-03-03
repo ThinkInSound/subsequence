@@ -861,6 +861,180 @@ def test_logistic_map_different_x0_different_output () -> None:
 	assert a != b
 
 
+# --- pink_noise ---
+
+
+def test_pink_noise_correct_length () -> None:
+
+	"""Output length should match the requested step count."""
+
+	assert len(subsequence.sequence_utils.pink_noise(16)) == 16
+	assert len(subsequence.sequence_utils.pink_noise(100)) == 100
+
+
+def test_pink_noise_zero_steps_returns_empty () -> None:
+
+	"""steps=0 should return an empty list."""
+
+	assert subsequence.sequence_utils.pink_noise(0) == []
+
+
+def test_pink_noise_range () -> None:
+
+	"""All output values should be in [0.0, 1.0]."""
+
+	result = subsequence.sequence_utils.pink_noise(1000, seed=7)
+	assert all(0.0 <= v <= 1.0 for v in result)
+
+
+def test_pink_noise_deterministic () -> None:
+
+	"""Same seed should always produce the same sequence."""
+
+	a = subsequence.sequence_utils.pink_noise(64, seed=42)
+	b = subsequence.sequence_utils.pink_noise(64, seed=42)
+	assert a == b
+
+
+def test_pink_noise_different_seeds () -> None:
+
+	"""Different seeds should produce different sequences."""
+
+	a = subsequence.sequence_utils.pink_noise(64, seed=0)
+	b = subsequence.sequence_utils.pink_noise(64, seed=99)
+	assert a != b
+
+
+def test_pink_noise_varies () -> None:
+
+	"""Output should not be constant."""
+
+	result = subsequence.sequence_utils.pink_noise(100, seed=1)
+	assert max(result) - min(result) > 0.1
+
+
+def test_pink_noise_spectral_character () -> None:
+
+	"""Adjacent samples should be more correlated than white noise (sources=1)."""
+
+	n = 500
+	pink = subsequence.sequence_utils.pink_noise(n, sources=16, seed=5)
+	white = subsequence.sequence_utils.pink_noise(n, sources=1, seed=5)
+
+	def mean_consecutive_diff (seq: list) -> float:
+		return sum(abs(seq[i + 1] - seq[i]) for i in range(len(seq) - 1)) / (len(seq) - 1)
+
+	assert mean_consecutive_diff(pink) < mean_consecutive_diff(white)
+
+
+# --- lsystem_expand ---
+
+
+def test_lsystem_expand_zero_generations () -> None:
+
+	"""generations=0 should return the axiom unchanged."""
+
+	assert subsequence.sequence_utils.lsystem_expand("ABC", {"A": "AB"}, 0) == "ABC"
+
+
+def test_lsystem_expand_deterministic_single_generation () -> None:
+
+	"""One generation of Fibonacci rules should produce the expected string."""
+
+	result = subsequence.sequence_utils.lsystem_expand(
+		axiom="A", rules={"A": "AB", "B": "A"}, generations=1
+	)
+	assert result == "AB"
+
+
+def test_lsystem_expand_fibonacci_lengths () -> None:
+
+	"""Fibonacci L-system string lengths should follow the Fibonacci sequence."""
+
+	rules = {"A": "AB", "B": "A"}
+	expected_lengths = [1, 2, 3, 5, 8, 13, 21]
+
+	for gen, expected_len in enumerate(expected_lengths):
+		result = subsequence.sequence_utils.lsystem_expand("A", rules, gen)
+		assert len(result) == expected_len, f"generation {gen}: expected length {expected_len}, got {len(result)}"
+
+
+def test_lsystem_expand_fibonacci_known_strings () -> None:
+
+	"""Fibonacci L-system should produce known strings for generations 0-4."""
+
+	rules = {"A": "AB", "B": "A"}
+	expected = ["A", "AB", "ABA", "ABAAB", "ABAABABA"]
+
+	for gen, expected_str in enumerate(expected):
+		assert subsequence.sequence_utils.lsystem_expand("A", rules, gen) == expected_str
+
+
+def test_lsystem_expand_identity_passthrough () -> None:
+
+	"""Characters not in rules should pass through unchanged."""
+
+	result = subsequence.sequence_utils.lsystem_expand(
+		axiom="AXB", rules={"A": "AB", "B": "A"}, generations=1
+	)
+	assert result == "ABXA"
+
+
+def test_lsystem_expand_empty_axiom () -> None:
+
+	"""An empty axiom should return an empty string."""
+
+	assert subsequence.sequence_utils.lsystem_expand("", {"A": "AB"}, 5) == ""
+
+
+def test_lsystem_expand_empty_rules () -> None:
+
+	"""Empty rules should leave the string unchanged at any generation."""
+
+	assert subsequence.sequence_utils.lsystem_expand("ABC", {}, 5) == "ABC"
+
+
+def test_lsystem_expand_stochastic_deterministic () -> None:
+
+	"""Same rng seed should produce the same stochastic expansion."""
+
+	rules: dict = {"A": [("AB", 3), ("BA", 1)], "B": "A"}
+	rng_a = random.Random(42)
+	rng_b = random.Random(42)
+	a = subsequence.sequence_utils.lsystem_expand("A", rules, 4, rng=rng_a)
+	b = subsequence.sequence_utils.lsystem_expand("A", rules, 4, rng=rng_b)
+	assert a == b
+
+
+def test_lsystem_expand_stochastic_respects_weights () -> None:
+
+	"""The higher-weight production should be chosen most often."""
+
+	import pytest
+
+	rules: dict = {"A": [("X", 9), ("Y", 1)]}
+	counts: dict = {"X": 0, "Y": 0}
+
+	for i in range(200):
+		result = subsequence.sequence_utils.lsystem_expand(
+			"A", rules, 1, rng=random.Random(i)
+		)
+		counts[result] = counts.get(result, 0) + 1
+
+	assert counts["X"] > counts["Y"] * 5
+
+
+def test_lsystem_expand_stochastic_no_rng_raises () -> None:
+
+	"""Stochastic rules without rng should raise ValueError."""
+
+	import pytest
+
+	rules: dict = {"A": [("AB", 1), ("BA", 1)]}
+	with pytest.raises(ValueError):
+		subsequence.sequence_utils.lsystem_expand("A", rules, 3)
+
+
 # --- perlin_1d_sequence ---
 
 

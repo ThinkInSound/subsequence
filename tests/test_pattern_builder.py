@@ -3637,3 +3637,238 @@ def test_thin_deterministic () -> None:
 
 	assert _run(7) == _run(7)
 	assert _run(7) != _run(8)  # different seeds → different results (overwhelmingly likely)
+
+
+# --- p.lsystem() ---
+
+
+def test_lsystem_places_notes () -> None:
+
+	"""lsystem() should place at least one note for a simple deterministic rule."""
+
+	drum_map = {"kick": 36}
+	pattern, builder = _make_builder(length=4, drum_note_map=drum_map)
+	builder.rng = random.Random(42)
+
+	builder.lsystem(
+		pitch_map={"A": "kick"},
+		axiom="A",
+		rules={"A": "AB", "B": "A"},
+		generations=3,
+	)
+
+	total = sum(len(s.notes) for s in pattern.steps.values())
+	assert total > 0
+
+
+def test_lsystem_autofit_places_all_mapped_symbols () -> None:
+
+	"""With step=None, every mapped symbol in the expanded string gets a note."""
+
+	# "A" maps to a pitch; "B" is a rest.
+	# Fibonacci gen=4: "ABAABABA" — 5 A's, 3 B's → 5 notes expected.
+	pattern, builder = _make_builder(length=4)
+	builder.rng = random.Random(42)
+
+	builder.lsystem(
+		pitch_map={"A": 60},
+		axiom="A",
+		rules={"A": "AB", "B": "A"},
+		generations=4,
+	)
+
+	total = sum(len(s.notes) for s in pattern.steps.values())
+	assert total == 5
+
+
+def test_lsystem_fixed_step_truncates () -> None:
+
+	"""With a fixed step, symbols past the bar end are ignored."""
+
+	# step=0.5 in a 4-beat bar fits exactly 8 symbols.
+	# generations=6 produces 13 Fibonacci symbols — only first 8 used.
+	pattern, builder = _make_builder(length=4)
+	builder.rng = random.Random(42)
+
+	# "A" maps to note, "B" is rest — we just check total notes ≤ 8.
+	builder.lsystem(
+		pitch_map={"A": 60, "B": 62},
+		axiom="A",
+		rules={"A": "AB", "B": "A"},
+		generations=6,
+		step=0.5,
+	)
+
+	total = sum(len(s.notes) for s in pattern.steps.values())
+	assert total <= 8
+
+
+def test_lsystem_unmapped_symbols_are_rests () -> None:
+
+	"""Characters not in pitch_map produce silence; time still advances."""
+
+	# Fibonacci gen=2: "ABA" — 2 A's, 1 B. Only A is mapped → 2 notes.
+	pattern, builder = _make_builder(length=4)
+	builder.rng = random.Random(42)
+
+	builder.lsystem(
+		pitch_map={"A": 60},
+		axiom="A",
+		rules={"A": "AB", "B": "A"},
+		generations=2,
+	)
+
+	total = sum(len(s.notes) for s in pattern.steps.values())
+	assert total == 2
+
+
+def test_lsystem_empty_pitch_map_produces_silence () -> None:
+
+	"""An empty pitch_map should produce no notes."""
+
+	pattern, builder = _make_builder(length=4)
+	builder.rng = random.Random(42)
+
+	builder.lsystem(
+		pitch_map={},
+		axiom="A",
+		rules={"A": "AB", "B": "A"},
+		generations=5,
+	)
+
+	total = sum(len(s.notes) for s in pattern.steps.values())
+	assert total == 0
+
+
+def test_lsystem_pitches_from_map () -> None:
+
+	"""All placed note pitches should be values from pitch_map."""
+
+	pattern, builder = _make_builder(length=4)
+	builder.rng = random.Random(42)
+
+	builder.lsystem(
+		pitch_map={"A": 60, "B": 64},
+		axiom="A",
+		rules={"A": "AB", "B": "A"},
+		generations=4,
+	)
+
+	all_pitches = {n.pitch for step in pattern.steps.values() for n in step.notes}
+	assert all_pitches <= {60, 64}
+
+
+def test_lsystem_drum_names () -> None:
+
+	"""String values in pitch_map resolve to MIDI via drum_note_map."""
+
+	drum_map = {"kick": 36, "snare": 38}
+	pattern, builder = _make_builder(length=4, drum_note_map=drum_map)
+	builder.rng = random.Random(42)
+
+	builder.lsystem(
+		pitch_map={"A": "kick", "B": "snare"},
+		axiom="A",
+		rules={"A": "AB", "B": "A"},
+		generations=3,
+	)
+
+	all_pitches = {n.pitch for step in pattern.steps.values() for n in step.notes}
+	assert all_pitches <= {36, 38}
+
+
+def test_lsystem_velocity_fixed () -> None:
+
+	"""A fixed integer velocity applies to all notes."""
+
+	pattern, builder = _make_builder(length=4)
+	builder.rng = random.Random(42)
+
+	builder.lsystem(
+		pitch_map={"A": 60, "B": 62},
+		axiom="A",
+		rules={"A": "AB", "B": "A"},
+		generations=4,
+		velocity=73,
+	)
+
+	all_velocities = [n.velocity for step in pattern.steps.values() for n in step.notes]
+	assert all(v == 73 for v in all_velocities)
+
+
+def test_lsystem_velocity_tuple () -> None:
+
+	"""A velocity (low, high) tuple randomises per note within the range."""
+
+	pattern, builder = _make_builder(length=4)
+	builder.rng = random.Random(42)
+
+	builder.lsystem(
+		pitch_map={"A": 60, "B": 62},
+		axiom="A",
+		rules={"A": "AB", "B": "A"},
+		generations=4,
+		velocity=(60, 100),
+	)
+
+	all_velocities = [n.velocity for step in pattern.steps.values() for n in step.notes]
+	assert all(60 <= v <= 100 for v in all_velocities)
+
+
+def test_lsystem_deterministic () -> None:
+
+	"""Same rng produces identical pitch sequence; different rng may differ."""
+
+	def _run (seed: int) -> list:
+		pattern, builder = _make_builder(length=4)
+		builder.rng = random.Random(seed)
+		builder.lsystem(
+			pitch_map={"A": 60, "B": 62},
+			axiom="A",
+			rules={"A": [("AB", 3), ("BA", 1)], "B": "A"},
+			generations=4,
+			velocity=80,
+		)
+		# Sort by pulse position, return pitch list to detect stochastic differences.
+		return [n.pitch for pos in sorted(pattern.steps) for n in pattern.steps[pos].notes]
+
+	assert _run(42) == _run(42)
+	# Different seeds produce different stochastic expansions (overwhelmingly likely).
+	assert _run(1) != _run(2)
+
+
+def test_lsystem_generations_zero () -> None:
+
+	"""generations=0 uses the axiom directly."""
+
+	pattern, builder = _make_builder(length=4)
+	builder.rng = random.Random(42)
+
+	# Axiom "AB" → 2 symbols, both mapped → 2 notes.
+	builder.lsystem(
+		pitch_map={"A": 60, "B": 64},
+		axiom="AB",
+		rules={"A": "ABC", "B": "A"},
+		generations=0,
+	)
+
+	total = sum(len(s.notes) for s in pattern.steps.values())
+	assert total == 2
+
+
+def test_lsystem_stochastic_rules () -> None:
+
+	"""Stochastic rules produce valid output without errors."""
+
+	pattern, builder = _make_builder(length=4)
+	builder.rng = random.Random(7)
+
+	builder.lsystem(
+		pitch_map={"A": 60, "B": 62, "C": 64},
+		axiom="A",
+		rules={"A": [("AB", 2), ("AC", 1)], "B": "A", "C": "BA"},
+		generations=4,
+	)
+
+	all_pitches = {n.pitch for step in pattern.steps.values() for n in step.notes}
+	assert all_pitches <= {60, 62, 64}
