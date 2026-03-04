@@ -15,11 +15,13 @@ BASS_CHANNEL  = 5
 SYNTH_CHANNEL = 0
 
 composition = subsequence.Composition(bpm=120, key="E")
-composition.harmony(style="aeolian_minor", cycle_beats=4, gravity=0.8)
+composition.midi_input(device="LoopBe Internal MIDI 0", clock_follow=True) # change to your own MIDI device
+composition.live() # now it will follow Live's transport
+composition.harmony(style="dorian_minor", cycle_beats=4, gravity=0.8)
 
 @composition.pattern(channel=DRUMS_CHANNEL, length=4, drum_note_map=gm_drums.GM_DRUM_MAP)
 def drums (p):
-	p.hit_steps("kick_1", [0, 4, 8, 12], velocity=100)
+	p.hit_steps("kick_1", [0, 3, 5, 12], velocity=100)
 	p.hit_steps("snare_1", [4, 12], velocity=100)
 	p.hit_steps("hi_hat_closed", range(16), velocity=80)
 	p.velocity_shape(low=60, high=100)
