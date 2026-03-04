@@ -484,7 +484,10 @@ async def run_until_stopped (sequencer: subsequence.sequencer.Sequencer) -> None
 		stop_event.set()
 
 	for sig in (signal.SIGINT, signal.SIGTERM):
-		loop.add_signal_handler(sig, _request_stop)
+		try:
+			loop.add_signal_handler(sig, _request_stop)
+		except NotImplementedError:
+			pass # Windows does not support add_signal_handler
 
 	assert sequencer.task is not None, "Sequencer task should exist after start()"
 	await asyncio.wait(
@@ -544,11 +547,11 @@ class Composition:
 
 	"""
 	The top-level controller for a musical piece.
-	
+
 	The `Composition` object manages the global clock (Sequencer), the harmonic
 	progression (HarmonicState), the song structure (FormState), and all MIDI patterns.
 	It serves as the main entry point for defining your music.
-	
+
 	Typical workflow:
 	1. Initialize `Composition` with BPM and Key.
 	2. Define harmony and form (optional).
@@ -571,13 +574,13 @@ class Composition:
 		Initialize a new composition.
 
 		Parameters:
-			output_device: The name of the MIDI output port to use. If `None`, 
+			output_device: The name of the MIDI output port to use. If `None`,
 				Subsequence will attempt to find a device, prompting if necessary.
 			bpm: Initial tempo in beats per minute (default 120).
 			key: The root key of the piece (e.g., "C", "F#", "Bb").
 				Required if you plan to use `harmony()`.
-			seed: An optional integer for deterministic randomness. When set, 
-				every random decision (chord choices, drum probability, etc.) 
+			seed: An optional integer for deterministic randomness. When set,
+				every random decision (chord choices, drum probability, etc.)
 				will be identical on every run.
 			record: When True, record all MIDI events to a file.
 			record_filename: Optional filename for the recording (defaults to timestamp).
@@ -1097,8 +1100,8 @@ class Composition:
 		"""
 		Set a random seed for deterministic, repeatable playback.
 
-		If a seed is set, Subsequence will produce the exact same sequence 
-		every time you run the script. This is vital for finishing tracks or 
+		If a seed is set, Subsequence will produce the exact same sequence
+		every time you run the script. This is vital for finishing tracks or
 		reproducing a specific 'performance'.
 
 		Parameters:
@@ -1145,8 +1148,8 @@ class Composition:
 		"""
 		Enable the realtime Web UI Dashboard.
 
-		When enabled, Subsequence instantiates a WebSocket server that broadcasts 
-		the current state, signals, and active patterns (with high-res timing and note data) 
+		When enabled, Subsequence instantiates a WebSocket server that broadcasts
+		the current state, signals, and active patterns (with high-res timing and note data)
 		to any connected browser clients.
 		"""
 
@@ -1159,8 +1162,8 @@ class Composition:
 
 		Parameters:
 			device: The name of the MIDI input port.
-			clock_follow: If True, Subsequence will slave its clock to incoming 
-				MIDI Ticks. It will also follow MIDI Start/Stop/Continue 
+			clock_follow: If True, Subsequence will slave its clock to incoming
+				MIDI Ticks. It will also follow MIDI Start/Stop/Continue
 				commands.
 
 		Example:
@@ -1257,8 +1260,8 @@ class Composition:
 		"""
 		Enable the live coding eval server.
 
-		This allows you to connect to a running composition using the 
-		`subsequence.live_client` REPL and hot-swap pattern code or 
+		This allows you to connect to a running composition using the
+		`subsequence.live_client` REPL and hot-swap pattern code or
 		modify variables in real-time.
 
 		Parameters:
@@ -1273,7 +1276,7 @@ class Composition:
 		"""
 		Enable bi-directional Open Sound Control (OSC).
 
-		Subsequence will listen for commands (like `/bpm` or `/mute`) and 
+		Subsequence will listen for commands (like `/bpm` or `/mute`) and
 		broadcast its internal state (like `/chord` or `/bar`) over UDP.
 
 		Parameters:
@@ -1329,8 +1332,8 @@ class Composition:
 
 		"""
 		Return a dictionary containing the current state of the composition.
-		
-		Includes BPM, key, current bar, active section, current chord, 
+
+		Includes BPM, key, current bar, active section, current chord,
 		running patterns, and custom data.
 		"""
 
@@ -1379,8 +1382,8 @@ class Composition:
 
 		"""
 		Mute a running pattern by name.
-		
-		The pattern continues to 'run' and increment its cycle count in 
+
+		The pattern continues to 'run' and increment its cycle count in
 		the background, but it will not produce any MIDI notes until unmuted.
 
 		Parameters:
@@ -1916,10 +1919,10 @@ class Composition:
 				if self._osc_server:
 					self._osc_server.send("/bar", bar)
 					self._osc_server.send("/bpm", self._sequencer.current_bpm)
-					
+
 					if self._harmonic_state:
 						self._osc_server.send("/chord", self._harmonic_state.current_chord.name())
-					
+
 					if self._form_state:
 						info = self._form_state.get_section_info()
 						if info:
