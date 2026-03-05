@@ -5,6 +5,8 @@ The Composition class handles the MIDI clock, device discovery, and
 harmony engine so you can focus on writing patterns.
 
 For the same music built with the Direct Pattern API, see demo_advanced.py.
+update added 3-4-2026: added Ableton Link support with aalink import and 
+can be performed in realtime now with composition.live active
 """
 
 import subsequence
@@ -18,25 +20,26 @@ SYNTH_CHANNEL = 0
 composition = subsequence.Composition(bpm=120, key="D")
 # composition.midi_input(device="LoopBe Internal MIDI 0", clock_follow=True) # change to your own MIDI device
 composition.live() # now it will follow Live's transport
+composition.web_ui() # Allows control via webGUI
 composition.harmony(style="dorian_minor", cycle_beats=4, gravity=0.8)
 
 @composition.pattern(channel=DRUMS_CHANNEL, length=4, drum_note_map=gm_drums.GM_DRUM_MAP)
 def drums (p):
-	p.hit_steps("kick_1", [0, 3, 5, 12], velocity=100)
-	p.hit_steps("snare_1", [4, 12], velocity=100)
-	p.hit_steps("hi_hat_closed", range(16), velocity=80)
-	p.velocity_shape(low=60, high=100)
+    p.hit_steps("kick_1", [0, 3, 5, 12], velocity=100)
+    p.hit_steps("snare_1", [4, 12], velocity=100)
+    p.hit_steps("hi_hat_closed", range(16), velocity=80)
+    p.velocity_shape(low=60, high=100)
 
 @composition.pattern(channel=BASS_CHANNEL, length=4)
 def bass (p, chord):
-	root = chord.root_note(40)
-	p.sequence(steps=[0, 4, 8, 12], pitches=root)
-	p.legato(0.9)
+    root = chord.root_note(40)
+    p.sequence(steps=[0, 4, 8, 12], pitches=root)
+    p.legato(0.9)
 
 @composition.pattern(channel=SYNTH_CHANNEL, length=4)
 def arp (p, chord):
-	pitches = chord.tones(root=60, count=4)
-	p.arpeggio(pitches, step=0.25, velocity=90, direction="up")
+    pitches = chord.tones(root=60, count=4)
+    p.arpeggio(pitches, step=0.25, velocity=90, direction="up")
 
 if __name__ == "__main__":
-	composition.play()
+    composition.play()
