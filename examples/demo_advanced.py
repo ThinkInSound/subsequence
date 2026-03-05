@@ -9,6 +9,7 @@ pattern updates, or multiple independent sequencers.
 """
 
 import asyncio
+from aalink import Link
 
 import subsequence.composition
 import subsequence.constants
@@ -82,7 +83,21 @@ class ArpPattern (subsequence.pattern.Pattern):
 
 
 async def main () -> None:
+	loop = asyncio.get_running_loop()
 	seq = subsequence.sequencer.Sequencer(initial_bpm=120)
+
+	# Ableton Link sync
+	link = Link(120, loop)
+	link.enabled = True
+
+	async def sync_tempo () -> None:
+		while True:
+			await asyncio.sleep(0.5)
+			if abs(link.tempo - seq.current_bpm) > 0.1:
+				seq.set_bpm(link.tempo)
+
+	asyncio.create_task(sync_tempo())
+
 	harmonic_state = subsequence.harmonic_state.HarmonicState(
 		key_name="E", graph_style="aeolian_minor", key_gravity_blend=0.8
 	)
