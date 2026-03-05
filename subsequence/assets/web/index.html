@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Subsequence</title>
+<title>POMSKI</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -20,7 +20,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 
 /* ── TOPBAR ── */
 .topbar{height:44px;background:var(--bg-panel);border-bottom:1px solid var(--border-dim);display:flex;align-items:center;padding:0 10px;gap:8px;flex-shrink:0;overflow:hidden}
-.logo{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--pink);letter-spacing:1px;flex-shrink:0}
+.logo{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--pink);letter-spacing:1px;flex-shrink:0;display:flex;flex-direction:column;justify-content:center;gap:1px}.logo-sub{font-family:var(--mono);font-size:7px;font-weight:400;color:var(--text-dark);letter-spacing:1px;text-transform:lowercase}
 .tdiv{width:1px;height:20px;background:var(--border);flex-shrink:0}
 .tc{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 8px;min-width:46px;flex-shrink:0}
 .tc-label{font-family:var(--mono);font-size:8px;color:var(--text-dark);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px}
@@ -160,7 +160,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 
   <!-- ── TOPBAR ── -->
   <div class="topbar">
-    <span class="logo">&#8767; Subsequence</span>
+    <span class="logo"><span>&#8767; POMSKI</span><span class="logo-sub">a ui for subsequence</span></span>
     <div class="tdiv"></div>
 
     <div class="bpm-ctrl" title="Drag up/down or +/- to change BPM">
@@ -571,7 +571,7 @@ function toggleMute(name,btn){wsSend({cmd:btn.classList.contains('muted')?'unmut
 })();
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
-log('\u223f Subsequence Web UI','info');
+log('\u223f POMSKI — a UI for Subsequence','info');
 log('Shift+Enter to run  \u00b7  Ctrl+\u2191\u2193 history','dim');
 log('','');
 connect();
