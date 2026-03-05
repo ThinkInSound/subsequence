@@ -158,6 +158,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 .link-stat-lbl{font-family:var(--mono);font-size:8px;color:var(--text-dark);letter-spacing:1px;text-transform:uppercase;margin-top:2px}
 .link-na{font-family:var(--mono);font-size:10px;color:var(--text-dark);text-align:center;padding:4px 0}
 .refresh-btn{height:24px;padding:0 10px;background:transparent;border:1px solid var(--border);border-radius:var(--r);color:var(--text-dark);font-family:var(--mono);font-size:8px;letter-spacing:1px;cursor:pointer;transition:all .1s;text-transform:uppercase;align-self:flex-start}
+.ref-scroll{flex:1;overflow-y:auto;padding:12px 10px;display:flex;flex-direction:column;gap:14px;min-height:0}
+.ref-scroll::-webkit-scrollbar{width:4px} .ref-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.ref-section{display:flex;flex-direction:column;gap:5px}
+.ref-title{font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--text-dark);text-transform:uppercase;padding-bottom:5px;border-bottom:1px solid var(--border-dim)}
+.ref-body{display:flex;flex-direction:column;gap:3px;padding-top:2px}
+.ref-item{font-family:var(--mono);font-size:10px;color:var(--text);display:flex;align-items:baseline;gap:6px;line-height:1.5}
+.ref-item code{color:var(--text);font-family:var(--mono);font-size:10px}
+.ref-indent{padding-left:14px}
+.ref-arg{color:var(--orange)}
+.ref-desc{font-family:var(--sans);font-size:9px;color:var(--text-dark);margin-left:4px;flex-shrink:0}
+.ref-tag{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:3px;font-size:8px;font-weight:700;flex-shrink:0}
+.ref-tag.warn{background:rgba(255,153,64,.2);color:var(--orange)}
 .refresh-btn:hover{border-color:var(--text-dim);color:var(--text)}
 
 /* Beat flash */
@@ -244,6 +256,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
         <div class="panel-tab" data-panel="signals">Signals</div>
         <div class="panel-tab" data-panel="patterns">Patterns</div>
         <div class="panel-tab" data-panel="prefs">Prefs</div>
+        <div class="panel-tab" data-panel="ref">Ref</div>
       </div>
 
       <!-- LOG -->
@@ -329,6 +342,112 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 
         </div>
       </div>
+
+      <!-- REF -->
+      <div class="panel-view" id="view-ref">
+        <div class="ref-scroll">
+
+          <div class="ref-section">
+            <div class="ref-title">REPL quirks</div>
+            <div class="ref-body">
+              <div class="ref-item"><span class="ref-tag warn">!</span> Use the <b>main editor</b> (Shift+Enter) for multi-line code — the quick command box mangles indentation</div>
+              <div class="ref-item"><span class="ref-tag warn">!</span> <b>Comments work</b> in the main editor only — <code>#</code> in the quick box causes IndentationError</div>
+              <div class="ref-item"><span class="ref-tag warn">!</span> Patterns defined via REPL go to <b>_pending_patterns</b> first — they activate on the next bar, not instantly</div>
+              <div class="ref-item"><span class="ref-tag warn">!</span> Always use the <b>same function name</b> as the slot (ch1, ch2…) when redefining — a new name creates a new pattern</div>
+              <div class="ref-item"><span class="ref-tag warn">!</span> Multi-statement one-liners return <b>OK</b> not a value — split onto separate sends to inspect results</div>
+              <div class="ref-item"><span class="ref-tag warn">!</span> <code>print()</code> outputs to the <b>terminal</b>, not the log — use bare expressions to see values here</div>
+              <div class="ref-item"><span class="ref-tag warn">!</span> <code>help()</code> is blocked — use <code>inspect.signature(fn)</code> instead</div>
+            </div>
+          </div>
+
+          <div class="ref-section">
+            <div class="ref-title">Composition</div>
+            <div class="ref-body">
+              <div class="ref-item"><code>composition.set_bpm(<span class="ref-arg">bpm</span>)</code><span class="ref-desc">Change tempo live</span></div>
+              <div class="ref-item"><code>composition.mute(<span class="ref-arg">"name"</span>)</code><span class="ref-desc">Silence a pattern</span></div>
+              <div class="ref-item"><code>composition.unmute(<span class="ref-arg">"name"</span>)</code><span class="ref-desc">Restore a pattern</span></div>
+              <div class="ref-item"><code>composition.key</code><span class="ref-desc">Current key string e.g. "C"</span></div>
+              <div class="ref-item"><code>composition.bpm</code><span class="ref-desc">Current tempo float</span></div>
+              <div class="ref-item"><code>composition.data</code><span class="ref-desc">Dict of live values / LFO outputs</span></div>
+              <div class="ref-item"><code>composition.running_patterns</code><span class="ref-desc">Dict of active pattern objects</span></div>
+              <div class="ref-item"><code>composition.form_next()</code><span class="ref-desc">Advance to next section now</span></div>
+              <div class="ref-item"><code>composition.form_jump(<span class="ref-arg">"name"</span>)</code><span class="ref-desc">Jump to named section</span></div>
+            </div>
+          </div>
+
+          <div class="ref-section">
+            <div class="ref-title">Pattern decorator</div>
+            <div class="ref-body">
+              <div class="ref-item"><code>@composition.pattern(</code></div>
+              <div class="ref-item ref-indent"><code>channel=<span class="ref-arg">1</span>,</code><span class="ref-desc">MIDI channel 1–16</span></div>
+              <div class="ref-item ref-indent"><code>length=<span class="ref-arg">4</span>,</code><span class="ref-desc">Loop length in beats</span></div>
+              <div class="ref-item ref-indent"><code>unit=<span class="ref-arg">None</span>,</code><span class="ref-desc">Step size override</span></div>
+              <div class="ref-item ref-indent"><code>drum_note_map=<span class="ref-arg">None</span></code><span class="ref-desc">Pass gm_drums.GM_DRUM_MAP for drums</span></div>
+              <div class="ref-item"><code>)</code></div>
+              <div class="ref-item ref-indent"><code>def <span class="ref-arg">ch1</span>(p):</code><span class="ref-desc">Name must match slot to replace it</span></div>
+            </div>
+          </div>
+
+          <div class="ref-section">
+            <div class="ref-title">Pattern builder (p)</div>
+            <div class="ref-body">
+              <div class="ref-item"><code>p.seq(<span class="ref-arg">"..."</span>, velocity=<span class="ref-arg">80</span>)</code><span class="ref-desc">Main note sequencer</span></div>
+              <div class="ref-item"><code>p.seq(<span class="ref-arg">"..."</span>, pitch=<span class="ref-arg">"kick_1"</span>, velocity=<span class="ref-arg">100</span>)</code><span class="ref-desc">Named pitch (drums)</span></div>
+            </div>
+          </div>
+
+          <div class="ref-section">
+            <div class="ref-title">Mini-notation</div>
+            <div class="ref-body">
+              <div class="ref-item"><code>60 62 64</code><span class="ref-desc">MIDI note numbers</span></div>
+              <div class="ref-item"><code>C4 D4 E4</code><span class="ref-desc">Note names (if supported)</span></div>
+              <div class="ref-item"><code>x</code><span class="ref-desc">Hit (drums)</span></div>
+              <div class="ref-item"><code>_</code><span class="ref-desc">Sustain / hold previous note</span></div>
+              <div class="ref-item"><code>~</code><span class="ref-desc">Rest</span></div>
+              <div class="ref-item"><code>[x x]</code><span class="ref-desc">Subdivide step into equal parts</span></div>
+              <div class="ref-item"><code>f"&#123;pitch&#125; _ _ _"</code><span class="ref-desc">f-string for dynamic pitches</span></div>
+            </div>
+          </div>
+
+          <div class="ref-section">
+            <div class="ref-title">Conductor (LFOs)</div>
+            <div class="ref-body">
+              <div class="ref-item"><code>composition.conductor.lfo(</code></div>
+              <div class="ref-item ref-indent"><code><span class="ref-arg">"name"</span>,</code><span class="ref-desc">Key in composition.data</span></div>
+              <div class="ref-item ref-indent"><code>shape=<span class="ref-arg">"sine"</span>,</code><span class="ref-desc">sine · triangle · square · saw</span></div>
+              <div class="ref-item ref-indent"><code>cycle_beats=<span class="ref-arg">16.0</span>,</code><span class="ref-desc">Full cycle length in beats</span></div>
+              <div class="ref-item ref-indent"><code>min_val=<span class="ref-arg">0.0</span>,</code></div>
+              <div class="ref-item ref-indent"><code>max_val=<span class="ref-arg">1.0</span></code></div>
+              <div class="ref-item"><code>)</code></div>
+              <div class="ref-item" style="margin-top:6px"><code>composition.data.get(<span class="ref-arg">"name"</span>, <span class="ref-arg">0.5</span>)</code><span class="ref-desc">Read safely with fallback</span></div>
+            </div>
+          </div>
+
+          <div class="ref-section">
+            <div class="ref-title">A minor scale pitches</div>
+            <div class="ref-body">
+              <div class="ref-item"><code>[57, 59, 60, 62, 64, 65, 67, 69]</code></div>
+              <div class="ref-item ref-indent"><span class="ref-desc">A3 B3 C4 D4 E4 F4 G4 A4</span></div>
+              <div class="ref-item" style="margin-top:4px"><code>scale[int(lfo * (len(scale)-1))]</code><span class="ref-desc">LFO → scale degree</span></div>
+            </div>
+          </div>
+
+          <div class="ref-section">
+            <div class="ref-title">Drums (channel 10)</div>
+            <div class="ref-body">
+              <div class="ref-item"><code>import subsequence.constants.instruments.gm_drums as gm_drums</code></div>
+              <div class="ref-item" style="margin-top:4px"><code>@composition.pattern(channel=10, length=4,</code></div>
+              <div class="ref-item ref-indent"><code>drum_note_map=gm_drums.GM_DRUM_MAP)</code></div>
+              <div class="ref-item ref-indent"><code>def ch10(p):</code></div>
+              <div class="ref-item ref-indent"><code>&nbsp;&nbsp;&nbsp;&nbsp;p.seq(<span class="ref-arg">"x ~ x ~"</span>, pitch=<span class="ref-arg">"kick_1"</span>, velocity=100)</code></div>
+              <div class="ref-item ref-indent"><code>&nbsp;&nbsp;&nbsp;&nbsp;p.seq(<span class="ref-arg">"~ x ~ x"</span>, pitch=<span class="ref-arg">"snare_1"</span>, velocity=90)</code></div>
+              <div class="ref-item ref-indent"><code>&nbsp;&nbsp;&nbsp;&nbsp;p.seq(<span class="ref-arg">"[x x] [x x] [x x] [x x]"</span>, pitch=<span class="ref-arg">"hi_hat_closed"</span>, velocity=70)</code></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
