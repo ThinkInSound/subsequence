@@ -385,26 +385,80 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
               <div class="ref-item ref-indent"><code>drum_note_map=<span class="ref-arg">None</span></code><span class="ref-desc">Pass gm_drums.GM_DRUM_MAP for drums</span></div>
               <div class="ref-item"><code>)</code></div>
               <div class="ref-item ref-indent"><code>def <span class="ref-arg">ch1</span>(p):</code><span class="ref-desc">Name must match slot to replace it</span></div>
+              <div class="ref-item"><span class="ref-tag warn">!</span> Send decorator + function together as one block from the main editor</div>
             </div>
           </div>
 
           <div class="ref-section">
-            <div class="ref-title">Pattern builder (p)</div>
+            <div class="ref-title">Pattern builder (p) — placing notes</div>
             <div class="ref-body">
-              <div class="ref-item"><code>p.seq(<span class="ref-arg">"..."</span>, velocity=<span class="ref-arg">80</span>)</code><span class="ref-desc">Main note sequencer</span></div>
-              <div class="ref-item"><code>p.seq(<span class="ref-arg">"..."</span>, pitch=<span class="ref-arg">"kick_1"</span>, velocity=<span class="ref-arg">100</span>)</code><span class="ref-desc">Named pitch (drums)</span></div>
+              <div class="ref-item"><code>p.note(<span class="ref-arg">pitch</span>, beat=<span class="ref-arg">0.0</span>, velocity=<span class="ref-arg">100</span>, duration=<span class="ref-arg">0.25</span>)</code><span class="ref-desc">Single note at beat position</span></div>
+              <div class="ref-item"><code>p.hit(<span class="ref-arg">pitch</span>, beats=<span class="ref-arg">[0,1,2]</span>, velocity=<span class="ref-arg">100</span>)</code><span class="ref-desc">Multiple hits at beat positions</span></div>
+              <div class="ref-item"><code>p.hit_steps(<span class="ref-arg">pitch</span>, steps=<span class="ref-arg">[0,4,8]</span>, velocity=<span class="ref-arg">100</span>, probability=<span class="ref-arg">1.0</span>)</code><span class="ref-desc">Hits at grid step indices</span></div>
+              <div class="ref-item"><code>p.sequence(steps=<span class="ref-arg">[0,4,8,12]</span>, pitches=<span class="ref-arg">[60,62,64,65]</span>, velocities=<span class="ref-arg">100</span>, durations=<span class="ref-arg">0.1</span>)</code><span class="ref-desc">Multi-step sequencer</span></div>
+              <div class="ref-item"><code>p.seq(<span class="ref-arg">"60 ~ 62 ~ 64"</span>, velocity=<span class="ref-arg">80</span>)</code><span class="ref-desc">Mini-notation string</span></div>
+              <div class="ref-item"><code>p.seq(<span class="ref-arg">"x ~ x ~"</span>, pitch=<span class="ref-arg">"kick_1"</span>, velocity=<span class="ref-arg">100</span>)</code><span class="ref-desc">Mini-notation with named pitch</span></div>
+              <div class="ref-item"><code>p.fill(<span class="ref-arg">pitch</span>, step=<span class="ref-arg">0.25</span>, velocity=<span class="ref-arg">100</span>)</code><span class="ref-desc">Repeat note every N beats (e.g. 16th notes)</span></div>
+              <div class="ref-item"><code>p.arpeggio(<span class="ref-arg">pitches</span>, step=<span class="ref-arg">0.25</span>, velocity=<span class="ref-arg">100</span>, direction=<span class="ref-arg">"up"</span>)</code><span class="ref-desc">direction: up · down · up_down · random</span></div>
+              <div class="ref-item"><code>p.chord(<span class="ref-arg">chord</span>, root=<span class="ref-arg">60</span>, velocity=<span class="ref-arg">90</span>, sustain=<span class="ref-arg">False</span>, count=<span class="ref-arg">4</span>, legato=<span class="ref-arg">0.9</span>)</code><span class="ref-desc">Chord block at beat 0</span></div>
+              <div class="ref-item"><code>p.strum(<span class="ref-arg">chord</span>, root=<span class="ref-arg">60</span>, offset=<span class="ref-arg">0.05</span>, direction=<span class="ref-arg">"up"</span>)</code><span class="ref-desc">Staggered chord (strum effect)</span></div>
+            </div>
+          </div>
+
+          <div class="ref-section">
+            <div class="ref-title">Pattern builder (p) — transforms</div>
+            <div class="ref-body">
+              <div class="ref-item"><span class="ref-tag warn">!</span> Call these <b>after</b> placing notes — they operate on existing notes</div>
+              <div class="ref-item"><code>p.legato(<span class="ref-arg">0.9</span>)</code><span class="ref-desc">Stretch notes to fill gap to next note (1.0 = full legato)</span></div>
+              <div class="ref-item"><code>p.staccato(<span class="ref-arg">0.25</span>)</code><span class="ref-desc">Set all durations to fixed proportion of a beat</span></div>
+              <div class="ref-item"><code>p.swing(<span class="ref-arg">57.0</span>, grid=<span class="ref-arg">0.25</span>, strength=<span class="ref-arg">1.0</span>)</code><span class="ref-desc">50=straight · 57=shuffle · 67=triplet</span></div>
+              <div class="ref-item"><code>p.groove(<span class="ref-arg">template</span>, strength=<span class="ref-arg">1.0</span>)</code><span class="ref-desc">Apply a Groove template</span></div>
+              <div class="ref-item"><code>p.velocity_shape(low=<span class="ref-arg">60</span>, high=<span class="ref-arg">100</span>)</code><span class="ref-desc">Organic velocity variation across notes</span></div>
+              <div class="ref-item"><code>p.randomize(timing=<span class="ref-arg">0.03</span>, velocity=<span class="ref-arg">0.0</span>)</code><span class="ref-desc">Micro-timing and velocity humanisation</span></div>
+              <div class="ref-item"><code>p.dropout(<span class="ref-arg">0.2</span>)</code><span class="ref-desc">Randomly remove 20% of notes</span></div>
+              <div class="ref-item"><code>p.transpose(<span class="ref-arg">semitones</span>)</code><span class="ref-desc">Shift all pitches up or down</span></div>
+              <div class="ref-item"><code>p.invert(pivot=<span class="ref-arg">60</span>)</code><span class="ref-desc">Mirror pitches around pivot note</span></div>
+              <div class="ref-item"><code>p.reverse()</code><span class="ref-desc">Flip pattern backwards in time</span></div>
+              <div class="ref-item"><code>p.double_time()</code><span class="ref-desc">Compress into first half (2× speed)</span></div>
+              <div class="ref-item"><code>p.half_time()</code><span class="ref-desc">Expand to double length (½ speed)</span></div>
+              <div class="ref-item"><code>p.shift(<span class="ref-arg">steps</span>)</code><span class="ref-desc">Rotate pattern left or right by N grid steps</span></div>
+              <div class="ref-item"><code>p.quantize(<span class="ref-arg">"C"</span>, mode=<span class="ref-arg">"dorian"</span>)</code><span class="ref-desc">Snap pitches to nearest scale degree</span></div>
+              <div class="ref-item"><code>p.every(<span class="ref-arg">4</span>, lambda p: p.reverse())</code><span class="ref-desc">Apply transform every Nth cycle</span></div>
+            </div>
+          </div>
+
+          <div class="ref-section">
+            <div class="ref-title">Pattern builder (p) — context</div>
+            <div class="ref-body">
+              <div class="ref-item"><code>p.cycle</code><span class="ref-desc">How many times this pattern has rebuilt (int)</span></div>
+              <div class="ref-item"><code>p.bar</code><span class="ref-desc">Global bar count</span></div>
+              <div class="ref-item"><code>p.grid</code><span class="ref-desc">Number of grid slots (e.g. 16)</span></div>
+              <div class="ref-item"><code>p.signal(<span class="ref-arg">"name"</span>)</code><span class="ref-desc">Read a conductor LFO value (0.0–1.0)</span></div>
+              <div class="ref-item"><code>p.param(<span class="ref-arg">"name"</span>, default=<span class="ref-arg">None</span>)</code><span class="ref-desc">Read a tweak value set via composition.tweak()</span></div>
+              <div class="ref-item"><code>p.set_length(<span class="ref-arg">8.0</span>)</code><span class="ref-desc">Change loop length dynamically</span></div>
+              <div class="ref-item"><code>p.rng</code><span class="ref-desc">Seeded random instance (use for reproducible randomness)</span></div>
+            </div>
+          </div>
+
+          <div class="ref-section">
+            <div class="ref-title">chord argument (needs harmony active)</div>
+            <div class="ref-body">
+              <div class="ref-item"><code>def <span class="ref-arg">my_pat</span>(p, chord):</code><span class="ref-desc">Add chord as 2nd arg to receive current chord</span></div>
+              <div class="ref-item"><code>chord.root_note(<span class="ref-arg">40</span>)</code><span class="ref-desc">Root pitch starting from MIDI note 40</span></div>
+              <div class="ref-item"><code>chord.tones(root=<span class="ref-arg">60</span>, count=<span class="ref-arg">4</span>)</code><span class="ref-desc">List of chord tone pitches</span></div>
+              <div class="ref-item"><code>composition.harmony(style=<span class="ref-arg">"dorian_minor"</span>, cycle_beats=<span class="ref-arg">4</span>, gravity=<span class="ref-arg">0.8</span>)</code><span class="ref-desc">Enable harmony engine</span></div>
             </div>
           </div>
 
           <div class="ref-section">
             <div class="ref-title">Mini-notation</div>
             <div class="ref-body">
-              <div class="ref-item"><code>60 62 64</code><span class="ref-desc">MIDI note numbers</span></div>
-              <div class="ref-item"><code>C4 D4 E4</code><span class="ref-desc">Note names (if supported)</span></div>
-              <div class="ref-item"><code>x</code><span class="ref-desc">Hit (drums)</span></div>
-              <div class="ref-item"><code>_</code><span class="ref-desc">Sustain / hold previous note</span></div>
-              <div class="ref-item"><code>~</code><span class="ref-desc">Rest</span></div>
-              <div class="ref-item"><code>[x x]</code><span class="ref-desc">Subdivide step into equal parts</span></div>
+              <div class="ref-item"><code>60 62 64</code><span class="ref-desc">MIDI note numbers distributed across pattern</span></div>
+              <div class="ref-item"><code>x</code><span class="ref-desc">Hit (used with pitch= for drums)</span></div>
+              <div class="ref-item"><code>~ &nbsp;.</code><span class="ref-desc">Rest</span></div>
+              <div class="ref-item"><code>_</code><span class="ref-desc">Sustain / extend previous note</span></div>
+              <div class="ref-item"><code>[x x]</code><span class="ref-desc">Subdivide one step into equal parts</span></div>
+              <div class="ref-item"><code>x?0.6</code><span class="ref-desc">Probability suffix — fires 60% of the time</span></div>
               <div class="ref-item"><code>f"&#123;pitch&#125; _ _ _"</code><span class="ref-desc">f-string for dynamic pitches</span></div>
             </div>
           </div>
