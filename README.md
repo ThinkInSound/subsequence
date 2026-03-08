@@ -11,10 +11,10 @@ from pomski import Composition
 
 composition = Composition(key="C", bpm=120)
 
-@composition.pattern(channel=1, beats=4)
-def bass(pattern, bar, beat):
-    pattern.note(pitch=36, velocity=100, duration=1)
-    pattern.note(pitch=43, velocity=80,  duration=0.5)
+@composition.pattern(channel=1, length=4)
+def bass(p):
+    p.note(36, beat=0, velocity=100, duration=1)
+    p.note(43, beat=2, velocity=80,  duration=0.5)
 
 composition.web_ui()   # open the browser dashboard
 composition.live()     # start the live coding server
@@ -59,9 +59,9 @@ pip install mido python-rtmidi  # MIDI device selection in the Web UI
 A pattern is a function that gets called every time its loop comes around. Return notes by calling `pattern.note()`:
 
 ```python
-@composition.pattern(channel=1, beats=2)
-def kick(pattern, bar, beat):
-    pattern.note(pitch=36, velocity=110, duration=0.1)
+@composition.pattern(channel=1, length=2)
+def kick(p):
+    p.note(36, beat=0, velocity=110, duration=0.1)
 ```
 
 `beats` sets the loop length. `bar` and `beat` tell you where you are in the composition so you can vary things over time.
@@ -107,9 +107,9 @@ composition.set_bpm(140)
 composition.mute("bass")
 
 # redefine a pattern entirely
-@composition.pattern(channel=1, beats=4)
-def bass(pattern, bar, beat):
-    pattern.note(pitch=33, velocity=90, duration=2)
+@composition.pattern(channel=1, length=4)
+def bass(p):
+    p.note(33, beat=0, velocity=90, duration=2)
 ```
 
 ---
