@@ -235,7 +235,7 @@ class Sequencer:
 
 		"""Save the recorded session to a MIDI file."""
 
-		if not self.recording or not self.recorded_events:
+		if not self.recorded_events:
 			return
 
 		if self.record_filename:
@@ -246,33 +246,34 @@ class Sequencer:
 
 		logger.info(f"Saving MIDI recording ({len(self.recorded_events)} events) to {filename}...")
 
-		mid = mido.MidiFile(type=1) # Type 1 = multiple tracks (though we might just use one)
-		track = mido.MidiTrack()
-		mid.tracks.append(track)
-
-		# Resolution (ticks per beat). Standard is 480.
-		# Subsequence uses 24 PPQN internal.
-		# To get 480 PPQN output without losing precision, we scale up by 20.
+		# Resolution: 24 internal pulses/beat × 20 = 480 ticks/beat (standard).
 		ticks_per_pulse = 20
+		mid = mido.MidiFile(type=1)
 		mid.ticks_per_beat = 480
 
-		# Sort events by pulse just in case
-		self.recorded_events.sort(key=lambda x: x[0])
+		# Tempo track (track 0): embed current BPM so the file plays at the right speed.
+		tempo_track = mido.MidiTrack()
+		mid.tracks.append(tempo_track)
+		import mido as _mido
+		tempo_us = int(60_000_000 / self.current_bpm)
+		tempo_track.append(_mido.MetaMessage('set_tempo', tempo=tempo_us, time=0))
+		tempo_track.append(_mido.MetaMessage('end_of_track', time=0))
 
-		last_pulse = 0.0
+		# Note track (track 1): normalise pulse offsets so the clip starts at tick 0.
+		note_track = mido.MidiTrack()
+		mid.tracks.append(note_track)
 
-		for pulse, message in self.recorded_events:
-			
-			delta_pulses = pulse - last_pulse
-			delta_ticks = int(delta_pulses * ticks_per_pulse)
-			
-			# Ensure delta is non-negative (floating point jitter?)
-			if delta_ticks < 0:
-				delta_ticks = 0
-			
-			message.time = delta_ticks
-			track.append(message)
+		events = sorted(self.recorded_events, key=lambda x: x[0])
+		# Start from the first event's pulse so there's no leading silence.
+		last_pulse = events[0][0] if events else 0.0
 
+		for pulse, message in events:
+			if isinstance(message, mido.MetaMessage):
+				# Skip any stray set_tempo meta-events captured mid-session;
+				# the tempo track above already encodes the correct BPM.
+				continue
+			delta_ticks = max(0, int((pulse - last_pulse) * ticks_per_pulse))
+			note_track.append(message.copy(time=delta_ticks))
 			last_pulse = pulse
 
 		try:
