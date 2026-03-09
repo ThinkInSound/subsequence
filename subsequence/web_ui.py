@@ -186,13 +186,11 @@ class WebUI:
                     elif action == 'record_stop':
                         seq = getattr(comp, 'sequencer', None)
                         if seq is not None:
-                            import os, traceback, mido
+                            import os, traceback
                             n_events = len(getattr(seq, 'recorded_events', []))
-                            is_recording = getattr(seq, 'recording', None)
+                            is_recording = getattr(seq, 'recording', False)
                             filename = getattr(seq, 'record_filename', None) or 'session.mid'
                             abs_path = os.path.abspath(filename)
-                            debug = f'seq={type(seq).__name__} recording={is_recording} events={n_events} file={abs_path}'
-                            await websocket.send(json.dumps({'repl_result': debug}))
                             if not is_recording:
                                 await websocket.send(json.dumps({'record_state': 'error', 'filename': 'recording was not active — start recording first'}))
                             elif n_events == 0:
@@ -200,28 +198,14 @@ class WebUI:
                                 await websocket.send(json.dumps({'record_state': 'error', 'filename': 'no events captured — MIDI may not have played during recording'}))
                             else:
                                 try:
-                                    # Replicate save_recording() directly so we control the flow
-                                    ticks_per_pulse = 20
-                                    mid = mido.MidiFile(type=1)
-                                    mid.ticks_per_beat = 480
-                                    track = mido.MidiTrack()
-                                    mid.tracks.append(track)
-                                    events = sorted(seq.recorded_events, key=lambda x: x[0])
-                                    last_pulse = 0.0
-                                    for pulse, message in events:
-                                        delta = max(0, int((pulse - last_pulse) * ticks_per_pulse))
-                                        message.time = delta
-                                        track.append(message)
-                                        last_pulse = pulse
-                                    mid.save(abs_path)
                                     seq.recording = False
+                                    seq.save_recording()
                                     seq.recorded_events = []
                                     await websocket.send(json.dumps({'record_state': 'saved', 'filename': abs_path}))
                                 except Exception:
-                                    seq.recording = False
                                     await websocket.send(json.dumps({'record_state': 'error', 'filename': traceback.format_exc()}))
                         else:
-                            await websocket.send(json.dumps({'record_state': 'error', 'filename': f'No sequencer — comp attrs: {[a for a in dir(comp) if "seq" in a.lower()]}'}))
+                            await websocket.send(json.dumps({'record_state': 'error', 'filename': 'No sequencer found'}))
 
                     elif action == 'live_clip_fire':
                         live = getattr(comp, '_live_bridge', None)
