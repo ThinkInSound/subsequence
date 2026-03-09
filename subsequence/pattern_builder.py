@@ -67,7 +67,7 @@ class PatternBuilder(
 	quarter note) or **steps** (subdivisions of a pattern).
 	"""
 
-	def __init__ (self, pattern: subsequence.pattern.Pattern, cycle: int, conductor: typing.Optional[subsequence.conductor.Conductor] = None, drum_note_map: typing.Optional[typing.Dict[str, int]] = None, section: typing.Any = None, bar: int = 0, rng: typing.Optional[random.Random] = None, tweaks: typing.Optional[typing.Dict[str, typing.Any]] = None, default_grid: int = 16) -> None:
+	def __init__ (self, pattern: subsequence.pattern.Pattern, cycle: int, conductor: typing.Optional[subsequence.conductor.Conductor] = None, drum_note_map: typing.Optional[typing.Dict[str, int]] = None, section: typing.Any = None, bar: int = 0, rng: typing.Optional[random.Random] = None, tweaks: typing.Optional[typing.Dict[str, typing.Any]] = None, default_grid: int = 16, data: typing.Optional[typing.Dict[str, typing.Any]] = None) -> None:
 
 		"""Initialize the builder with pattern context, cycle count, and optional section info.
 
@@ -95,6 +95,7 @@ class PatternBuilder(
 		self.rng: random.Random = rng or random.Random()
 		self._tweaks: typing.Dict[str, typing.Any] = tweaks or {}
 		self._default_grid: int = default_grid
+		self.data: typing.Dict[str, typing.Any] = data if data is not None else {}
 
 	@property
 	def grid (self) -> int:
